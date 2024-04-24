@@ -3,23 +3,19 @@ $(document).ready(function () {
     document.getElementById("page-length").addEventListener("input", handleTableRows);
 
     var table;
-    var timetable;
+    var places;
     
     setTable();
 
     async function setTable() {
-        //await refreshData();
+        await refreshData();
         table = $('#myTable').DataTable({
             responsive: true,
-            data: timetable,
+            data: places,
             columns: [
-                { data: 'day' },
-                { data: 'time_from' },
-                { data: 'time_to' },
-                { data: 'subject' },
-                { data: 'action' },
-                { data: 'room' },
-                { data: 'teacher' }
+                { data: 'place' },
+                { data: 'country' },
+                { data: 'searched_amount' }
             ],
             scrollX: true,
             layout: {
@@ -27,80 +23,17 @@ $(document).ready(function () {
                 topEnd: null,
                 bottomStart: null,
                 bottomEnd: 'paging'
-            }
+            },
+            order: [[2, "desc"]]
         });
     }
 
 
     async function refreshData() {
-        timetable = await requestApi('/api_timetable.php/timetable');
-        console.log("TIMETABLE: " + timetable);
+        places = await requestApi('/api_stats.php/places');
+        console.log(places);
     }
 
-    function submitTimetable() {
-        $.ajax({
-            type: "POST",
-            url: "setAisTimetable.php",
-            data: {
-                action: "submit"
-            }, // Send data to the server
-            success: function (response) {
-                alert(response);
-                // You can perform additional actions after successful submission
-            },
-            error: function (xhr, status, error) {
-                console.error(xhr.responseText);
-                alert("Error occurred while submitting data.");
-            }
-        });
-    }
-
-    
-
-    function deleteTimetable() {
-        $.ajax({
-            type: "POST",
-            url: "setAisTimetable.php",
-            data: {
-                action: "delete"
-            }, // Send data to the server
-            success: function (response) {
-                alert(response);
-                // You can perform additional actions after successful submission
-            },
-            error: function (xhr, status, error) {
-                console.error(xhr.responseText);
-                alert("Error occurred while deleting data.");
-            }
-        });
-    }
-
-    async function refreshTimetable() {
-        await refreshData();
-        $('#myTable').DataTable().clear().draw();
-        // Populate DataTable with updated JSON data
-        $('#myTable').DataTable().rows.add(timetable).draw();
-
-    }
-
-
-    async function showEditForm(e) {
-        let timetableAction = await requestApi("/api_timetable.php/timetableAction/" + e.target.value);
-        document.getElementById("form-record-edit").classList.remove("hidden");
-        if (e.target.value === "0") {
-            document.getElementById("form-record-edit").classList.add("hidden");
-        }
-
-        preFillInputs(timetableAction[0]);
-    }
-
-    async function showEditForm2(e) {
-        document.getElementById("form-record-remove").classList.remove("hidden");
-        if (e.target.value === "0") {
-            document.getElementById("form-record-remove").classList.add("hidden");
-        }
-        document.getElementById("tableActionId2").value = e.target.value;
-    }
 
     function handleTableRows(e) {
         table.page.len(e.target.value).draw();
@@ -110,10 +43,11 @@ $(document).ready(function () {
         table.column(0).search(e.target.value).draw();
     }
 
+
     
     async function requestApi(endpoint) {
         try {
-            const apiUrl = 'https://node10.webte.fei.stuba.sk/harenec2/api' + endpoint;
+            const apiUrl = 'https://node10.webte.fei.stuba.sk/harenec4/server/api' + endpoint;
             const response = await fetch(apiUrl);
             if (!response.ok) {
                 throw new Error('Network response was not ok');
@@ -125,7 +59,64 @@ $(document).ready(function () {
             return []; // Return empty array on error
         }
     }
-    
+
+    async function getIpAddress() {
+        try {
+            const response = await fetch('https://api.ipify.org?format=json');
+            const data = await response.json();
+            return data.ip;
+        } catch (error) {
+            console.error('Error:', error);
+            return null;
+        }
+    }
+
+    async function storeVisitorInfo() {
+        let currTime = new Date();
+        let visitor = localStorage.getItem("visitor");
+        if (visitor !== null) {
+            visitor = JSON.parse(visitor);
+            console.log(currTime.getTime() - visitor.timestamp);
+            if (currTime.getTime() - visitor.timestamp < 3600000) {
+                return;
+            } 
+        }
+
+        const ipAddress = await getIpAddress();
+        if (ipAddress) {
+            const timestamp = currTime.getTime();
+            const visitorData = {
+                ip: ipAddress,
+                timestamp: timestamp
+            };
+            const visitorKey = 'visitor';
+            localStorage.setItem(visitorKey, JSON.stringify(visitorData));
+            
+            let hour = currTime.getHours();
+            let id = 1;
+            if (0 <= hour && hour < 6) {
+                id = 1;
+            }
+            else if (6 <= hour && hour < 15) {
+                id = 2;
+            }
+            else if (15 <= hour && hour < 21) {
+                id = 3;
+            }
+            else if (21 <= hour && hour < 24) {
+                id = 4;
+            }
+
+            callApi("PUT", `./server/api/api_stats.php/uniqueUser/${id}`);
+
+        } 
+        else {
+            console.error('Failed to retrieve IP address');
+        }
+    }
+
+    storeVisitorInfo();
+
 });
 
 let opened1 = false;
@@ -142,14 +133,24 @@ function showDiv(elemName) {
     
 }
 
-function preFillInputs(timetableAction) {
-    document.getElementById("tableActionId").value = timetableAction.id;
-    document.getElementById("edit-day").value = timetableAction.day;
-    document.getElementById("edit-time_from").value = timetableAction.time_from;
-    document.getElementById("edit-time_to").value = timetableAction.time_to;
-    document.getElementById("edit-subject").value = timetableAction.subject;
-    document.getElementById("edit-action").value = timetableAction.action;
-    document.getElementById("edit-room").value = timetableAction.room;
-    document.getElementById("edit-teacher").value = timetableAction.teacher;
+async function callApi(method, url, data = []) {
+    const options = {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    };
 
+    try {
+        const response = await fetch(url, options);
+        if (!response.ok) {
+            throw new Error('Network response was not ok, code:' + response.statusText);
+        }
+        const responseData = await response.json();
+        return responseData; // Return the JSON data
+    } catch (error) {
+        console.error('Error:', error);
+        throw error; // Re-throw the error to be caught by the caller
+    }
 }

@@ -5,10 +5,19 @@ error_reporting(E_ALL);
 
 session_start();
 
-$apiBaseUrl = 'https://node10.webte.fei.stuba.sk/harenec2/api';
+require_once "../config4.php";
+
+$apiBaseUrl = 'https://node10.webte.fei.stuba.sk/harenec4/server/api';
 
 $errmsg = "";
 $successmsg = "";
+
+$query = "SELECT * FROM unique_users";
+
+$stmt = $pdo->prepare($query);
+$stmt->execute();
+
+$connectionTimes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 
 ?>
@@ -19,7 +28,7 @@ $successmsg = "";
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AIS Rozvrh hodín</title>
+    <title>DOVOLENá</title>
     <link rel="icon" type="image/x-icon" href="../dawg.png">
     <link rel="shortcut icon" href="#">
     <link rel="stylesheet"
@@ -43,8 +52,39 @@ $successmsg = "";
         </nav>
     </div>
     <main class="container">
-        <h1>Ideme na výlet.</h1>
-        
+        <h1>Štatistiky návštevnosti.</h1>
+
+        <h2>Návštevnosť stránky:</h2>
+        <div class="in-row spaced-between ">
+            <div class="in-column centered spacer-r">
+                <p>00:00 - 06:00 </p>
+                <p>
+                    <?php echo $connectionTimes[0]["amount"] ?>
+                </p>
+            </div>
+            <div class="in-column centered spacer-r">
+                <p>06:00 - 15:00 </p>
+                <p>
+                    <?php echo $connectionTimes[1]["amount"] ?>
+                </p>
+            </div>
+            <div class="in-column centered spacer-r">
+                <p>15:00 - 21:00 </p>
+                <p>
+                    <?php echo $connectionTimes[2]["amount"] ?>
+                </p>
+            </div>
+            <div class="in-column centered spacer-r">
+                <p>21:00 - 24:00 </p>
+                <p>
+                    <?php echo $connectionTimes[3]["amount"] ?>
+                </p>
+            </div>
+
+
+        </div>
+
+        <h2>Najvyhľadávanejšie destinácie:</h2>
         <div class="table-nav">
             <div class="table-selector">
                 <h4>Počet záznamov na stránku:</h4>
@@ -58,190 +98,13 @@ $successmsg = "";
             </div>
 
         </div>
-        <div id="table-edit-nav" class="hidden">
-            <div class="table-nav table-edit">
-                <button id="record-add" class="btn-compact">Pridaj záznam</button>
-                <button id="record-edit" class="btn-compact">Uprav záznam</button>
-                <button id="record-remove" class="btn-compact">Vymaž záznam</button>
-            </div>
-
-            <div class="table-nav table-edit form-outline hidden">
-                <form id="form-record-add" class="form-record" method="post"
-                    action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>">
-                    <input type="hidden" name="formId" value="form-record-add">
-
-                    <div class="form-input">
-                        <label for="add-name">
-                            Deň:
-                        </label>
-                        <select name="add-day" id="add-day">
-                            <option value="">Vyberte deň</option>
-                            <option value="Po">Pondelok</option>
-                            <option value="Ut">Utorok</option>
-                            <option value="St">Streda</option>
-                            <option value="Št">Štvrtok</option>
-                            <option value="Pi">Piatok</option>
-                        </select>
-                    </div>
-
-                    <div class="form-input">
-                        <label for="add-time_from">
-                            Od:
-                        </label>
-                        <input type="text" name="add-time_from" value="" id="add-time_from" placeholder="napr. 9:00">
-                        <span class="err" id="err-add-time_from"></span>
-                    </div>
-
-                    <div class="form-input">
-                        <label for="add-time_to">
-                            Do:
-                        </label>
-                        <input type="text" name="add-time_to" value="" id="add-time_to" placeholder="napr. 10:50">
-                        <span class="err" id="add-time_to"></span>
-                    </div>
-
-                    <div class="form-input">
-                        <label for="add-subject">
-                            Názov predmetu:
-                        </label>
-                        <input type="text" name="add-subject" value="" id="add-subject"
-                            placeholder="napr. Pretekárske inžinierstvo">
-                        <span class="err" id="err-add-subject"></span>
-                    </div>
-
-                    <div class="form-input">
-                        <label for="add-action">
-                            Typ:
-                        </label>
-                        <input type="text" name="add-action" value="" id="add-action" placeholder="napr. Prednáška">
-                        <span class="err" id="err-add-action"></span>
-                    </div>
-
-                    <div class="form-input">
-                        <label for="add-room">
-                            Miestnosť:
-                        </label>
-                        <input type="text" name="add-room" value="" id="add-room" placeholder="napr. c710">
-                        <span class="err" id="err-add-room"></span>
-                    </div>
-
-                    <div class="form-input">
-                        <label for="add-teacher">
-                            Učiteľ:
-                        </label>
-                        <input type="text" name="add-teacher" value="" id="add-teacher" placeholder="napr. J. Bajusz">
-                        <span class="err" id="err-add-teacher"></span>
-                    </div>
-
-                    <div class="form-input">
-                        <button id="add-submit-btn" type="submit">Uložiť záznam</button>
-                    </div>
-                </form>
-            </div>
-
-
-            <div class="table-nav table-edit form-outline hidden">
-                <p>Nájdi záznam:</p>
-                <div class="form-input">
-                    <select name="choose-action-id" id="choose-action-id">
-                        <option value="0">Vyberte záznam</option>
-                        <?php
-                        // $response = sendRequest($apiBaseUrl . "/api_timetable.php/timetable");
-                        // $data = json_decode($response, true);
-                        // $data2 = $data['response'];
-                        // $timetable = json_decode($data2, true);
-
-                        // foreach ($timetable as $row) {
-                        //     echo "<option value=" . $row['id'] . ">" . $row['day'] . ", " . $row['time_from'] . ", " . $row['subject'] . ", " . $row['action'] . "</option>";
-                        // }
-                        ?>
-                    </select>
-                </div>
-                <form id="form-record-edit" class="form-record hidden" method="post"
-                    action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>">
-                    <input type="hidden" name="formId" value="form-record-edit">
-                    <input type="hidden" name="tableActionId" id="tableActionId" value="">
-                    <div class="form-input">
-                        <label for="edit-name">
-                            Deň:
-                        </label>
-                        <select name="edit-day" id="edit-day">
-                            <option value="">Vyberte deň</option>
-                            <option value="Po">Pondelok</option>
-                            <option value="Ut">Utorok</option>
-                            <option value="St">Streda</option>
-                            <option value="Št">Štvrtok</option>
-                            <option value="Pi">Piatok</option>
-                        </select>
-                    </div>
-
-                    <div class="form-input">
-                        <label for="edit-time_from">
-                            Od:
-                        </label>
-                        <input type="text" name="edit-time_from" value="" id="edit-time_from" placeholder="napr. 9:00">
-                        <span class="err" id="err-edit-time_from"></span>
-                    </div>
-
-                    <div class="form-input">
-                        <label for="edit-time_to">
-                            Do:
-                        </label>
-                        <input type="text" name="edit-time_to" value="" id="edit-time_to" placeholder="napr. 10:50">
-                        <span class="err" id="edit-time_to"></span>
-                    </div>
-
-                    <div class="form-input">
-                        <label for="edit-subject">
-                            Názov predmetu:
-                        </label>
-                        <input type="text" name="edit-subject" value="" id="edit-subject"
-                            placeholder="napr. Pretekárske inžinierstvo">
-                        <span class="err" id="err-edit-subject"></span>
-                    </div>
-
-                    <div class="form-input">
-                        <label for="edit-action">
-                            Typ:
-                        </label>
-                        <input type="text" name="edit-action" value="" id="edit-action" placeholder="napr. Prednáška">
-                        <span class="err" id="err-edit-action"></span>
-                    </div>
-
-                    <div class="form-input">
-                        <label for="edit-room">
-                            Miestnosť:
-                        </label>
-                        <input type="text" name="edit-room" value="" id="edit-room" placeholder="napr. c710">
-                        <span class="err" id="err-edit-room"></span>
-                    </div>
-
-                    <div class="form-input">
-                        <label for="edit-teacher">
-                            Učiteľ:
-                        </label>
-                        <input type="text" name="edit-teacher" value="" id="edit-teacher" placeholder="napr. J. Bajusz">
-                        <span class="err" id="err-edit-teacher"></span>
-                    </div>
-
-                    <div class="form-input">
-                        <button id="edit-submit-btn" type="submit">Uložiť zmenu</button>
-                    </div>
-
-                </form>
-            </div>
-        </div>
 
         <table id="myTable" class="table table-striped table-hover" width="100%">
             <thead>
                 <tr>
-                    <th>Deň</th>
-                    <th>Od</th>
-                    <th>Do</th>
-                    <th>Predmet</th>
-                    <th>Akcia</th>
-                    <th>Miestnosť</th>
-                    <th>Vyučujúci</th>
+                    <th>Miesto</th>
+                    <th>Štát</th>
+                    <th>Počet vyhľadávaní</th>
                 </tr>
             </thead>
             <tbody>

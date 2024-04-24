@@ -36,6 +36,8 @@ function getWeatherData($location, $dateFrom, $dateTo) {
     $apiUrlCurrency = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/eur.json";
     $dataCurrency = json_decode(curling($apiUrlCurrency), true);
 
+    
+
     $data = array_merge($dataCurrent, $dataHistory, $dataCountry, $dataCurrency);
 
     return $data;
